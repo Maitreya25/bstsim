@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Binary Search Tree Simulation</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f7f7f7; }
+    h1 { color: #333; }
+    #controls { margin: 20px; }
+    input, button { margin: 5px; padding: 8px; }
+    canvas { background: white; border: 1px solid #ccc; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Binary Search Tree Simulation</h1>
+  <div id="controls">
+    <input type="number" id="value" placeholder="Enter value" />
+    <button onclick="insertNode()">Insert</button>
+    <button onclick="deleteNode()">Delete</button>
+    <button onclick="searchNode()">Search</button>
+    <br>
+    <button onclick="showTraversal('inorder')">Inorder</button>
+    <button onclick="showTraversal('preorder')">Preorder</button>
+    <button onclick="showTraversal('postorder')">Postorder</button>
+    <button onclick="showTraversal('levelorder')">Level Order</button>
+  </div>
+  <canvas id="treeCanvas" width="900" height="500"></canvas>
+  <p id="output"></p>
+
+  <script>
+    class Node {
+      constructor(value) {
+        this.value = value;
+        this.left = null;
+        this.right = null;
+      }
+    }
+
+    class BST {
+      constructor() {
+        this.root = null;
+      }
+
+      insert(value) {
+        const newNode = new Node(value);
+        if (!this.root) {
+          this.root = newNode;
+          return [value];
+        }
+        let curr = this.root;
+        let path = [curr.value];
+        while (true) {
+          if (value < curr.value) {
+            if (!curr.left) { curr.left = newNode; path.push(value); return path; }
+            curr = curr.left;
+            path.push(curr.value);
+          } else {
+            if (!curr.right) { curr.right = newNode; path.push(value); return path; }
+            curr = curr.right;
+            path.push(curr.value);
+          }
+        }
+      }
+
+      search(value) {
+        let curr = this.root;
+        let path = [];
+        while (curr) {
+          path.push(curr.value);
+          if (curr.value === value) return {found:true, path};
+          curr = value < curr.value ? curr.left : curr.right;
+        }
+        return {found:false, path};
+      }
+
+      delete(value) {
+        this.root = this._deleteRec(this.root, value);
+      }
+
+      _deleteRec(root, value) {
+        if (!root) return root;
+        if (value < root.value) {
+          root.left = this._deleteRec(root.left, value);
+        } else if (value > root.value) {
+          root.right = this._deleteRec(root.right, value);
+        } else {
+          if (!root.left) return root.right;
+          if (!root.right) return root.left;
+          let succ = this._minValue(root.right);
+          root.value = succ;
+          root.right = this._deleteRec(root.right, succ);
+        }
+        return root;
+      }
+
+      _minValue(node) {
+        let minv = node.value;
+        while (node.left) {
+          minv = node.left.value;
+          node = node.left;
+        }
+        return minv;
+      }
+
+      inorder(root=this.root, arr=[]) {
+        if (!root) return arr;
+        this.inorder(root.left, arr);
+        arr.push(root.value);
+        this.inorder(root.right, arr);
+        return arr;
+      }
+
+      preorder(root=this.root, arr=[]) {
+        if (!root) return arr;
+        arr.push(root.value);
+        this.preorder(root.left, arr);
+        this.preorder(root.right, arr);
+        return arr;
+      }
+
+      postorder(root=this.root, arr=[]) {
+        if (!root) return arr;
+        this.postorder(root.left, arr);
+        this.postorder(root.right, arr);
+        arr.push(root.value);
+        return arr;
+      }
+
+      levelorder() {
+        let arr=[]; let q=[];
+        if(this.root) q.push(this.root);
+        while(q.length){
+          let node=q.shift();
+          arr.push(node.value);
+          if(node.left) q.push(node.left);
+          if(node.right) q.push(node.right);
+        }
+        return arr;
+      }
+    }
+
+    const bst = new BST();
+    [50,30,70,20,40,60,80].forEach(v => bst.insert(v));
+
+    const canvas = document.getElementById('treeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function drawTree(node, x, y, depth, highlightNodes=[]) {
+      if (!node) return;
+      let dx = 120/Math.pow(depth,0.7);
+      let childY = y + 70;
+
+      if (node.left) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - dx, childY);
+        ctx.stroke();
+        drawTree(node.left, x - dx, childY, depth+1, highlightNodes);
+      }
+      if (node.right) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + dx, childY);
+        ctx.stroke();
+        drawTree(node.right, x + dx, childY, depth+1, highlightNodes);
+      }
+
+      ctx.beginPath();
+      ctx.arc(x, y, 20, 0, 2*Math.PI);
+      ctx.fillStyle = highlightNodes.includes(node.value) ? '#ff0' : '#fff';
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.value, x, y);
+    }
+
+    function renderTree(highlightNodes=[]) {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawTree(bst.root, canvas.width/2, 50, 1, highlightNodes);
+    }
+
+    async function animatePath(path) {
+      let visited = [];
+      for (let i=0;i<path.length;i++) {
+        visited.push(path[i]);
+        renderTree(visited);
+        await new Promise(r => setTimeout(r, 700));
+      }
+      document.getElementById('output').innerText = `Path: ${path.join(' -> ')}`;
+    }
+
+    async function insertNode(){
+      const val = parseInt(document.getElementById('value').value);
+      if(!isNaN(val)) {
+        let path = bst.insert(val);
+        await animatePath(path);
+      }
+      renderTree();
+    }
+
+    async function deleteNode(){
+      const val = parseInt(document.getElementById('value').value);
+      if(!isNaN(val)) {
+        bst.delete(val);
+      }
+      renderTree();
+    }
+
+    async function searchNode(){
+      const val = parseInt(document.getElementById('value').value);
+      if(isNaN(val)) return;
+      const res = bst.search(val);
+      await animatePath(res.path);
+      document.getElementById('output').innerText = res.found ?
+        `Found ${val}. Path: ${res.path.join(' -> ')}` :
+        `Not found. Path: ${res.path.join(' -> ')}`;
+    }
+
+    async function showTraversal(type){
+      let result;
+      if(type==='inorder') result = bst.inorder();
+      if(type==='preorder') result = bst.preorder();
+      if(type==='postorder') result = bst.postorder();
+      if(type==='levelorder') result = bst.levelorder();
+      await animatePath(result);
+      document.getElementById('output').innerText = `${type} traversal: ${result.join(' -> ')}`;
+    }
+
+    renderTree();
+  </script>
+</body>
+</html>
